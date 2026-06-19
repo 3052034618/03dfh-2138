@@ -2,7 +2,19 @@ import { useMemo } from 'react';
 import { usePosterStore } from '../store/posterStore';
 import { getMissingCount } from '../utils/seatGenerator';
 import { getSeatDisplay } from '../types';
-import { X, CheckCircle2, AlertTriangle, Download, Copy, ChevronRight } from 'lucide-react';
+import { generateShareSuggestions } from '../utils/shareSuggestions';
+import {
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Download,
+  Copy,
+  ChevronRight,
+  Sparkles,
+  AlertOctagon,
+  AlertCircle,
+} from 'lucide-react';
+import type { ShareType } from '../types';
 
 type CheckType = 'ok' | 'warn' | 'err';
 interface CheckItem {
@@ -12,15 +24,17 @@ interface CheckItem {
   tip: string;
 }
 
+type ShareTarget = 'poster' | 'copy' | 'both';
+
 interface Props {
   onClose: () => void;
-  onConfirmDownload: () => void;
-  onConfirmCopy: () => void;
   exporting: boolean;
+  initialTarget?: ShareTarget;
+  onConfirm: (target: ShareTarget) => void;
 }
 
-export const ShareCheckModal = ({ onClose, onConfirmDownload, onConfirmCopy, exporting }: Props) => {
-  const { form, tone, size, seats } = usePosterStore();
+export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', onConfirm }: Props) => {
+  const { form, tone, size, seats, addDeparture } = usePosterStore();
   const missing = getMissingCount(form.totalPlayers, form.filledPlayers);
 
   const checks: CheckItem[] = useMemo(() => {
@@ -129,12 +143,14 @@ export const ShareCheckModal = ({ onClose, onConfirmDownload, onConfirmCopy, exp
     return items;
   }, [form, tone, size, seats, missing]);
 
+  const suggestions = useMemo(() => generateShareSuggestions(tone, form, seats), [tone, form, seats]);
+
   const summary = useMemo(() => {
     const err = checks.filter((c) => c.status === 'err').length;
     const warn = checks.filter((c) => c.status === 'warn').length;
-    if (err > 0) return { status: 'err', text: `有 ${err} 项必填没填，最好先补一下` };
-    if (warn > 0) return { status: 'warn', text: `有 ${warn} 项建议完善，可以直接发但可能漏掉信息` };
-    return { status: 'ok', text: '信息都很完整，可以放心发了！🚀' };
+    if (err > 0) return { status: 'err' as const, text: `有 ${err} 项必填没填，最好先补一下` };
+    if (warn > 0) return { status: 'warn' as const, text: `有 ${warn} 项建议完善，可以直接发但可能漏掉信息` };
+    return { status: 'ok' as const, text: '信息都很完整，可以放心发了！🚀' };
   }, [checks]);
 
   const statusColor: Record<CheckType, string> = {
@@ -148,9 +164,18 @@ export const ShareCheckModal = ({ onClose, onConfirmDownload, onConfirmCopy, exp
     err: <AlertTriangle className="h-4 w-4" />,
   };
 
+  const handleConfirm = (target: ShareTarget) => {
+    const shareType: ShareType = target === 'both' ? 'both' : target;
+    addDeparture(shareType);
+    onConfirm(target);
+  };
+
+  const showPoster = initialTarget === 'both' || initialTarget === 'poster';
+  const showCopy = initialTarget === 'both' || initialTarget === 'copy';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-pop">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-pop max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200"
@@ -176,7 +201,34 @@ export const ShareCheckModal = ({ onClose, onConfirmDownload, onConfirmCopy, exp
           </div>
         </div>
 
-        <div className="mb-5 max-h-[45vh] space-y-1.5 overflow-y-auto pr-1">
+        {suggestions.length > 0 && (
+          <div className="mb-4 space-y-2 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 p-3 border border-indigo-100">
+            <div className="flex items-center gap-1.5 text-sm font-black text-indigo-700">
+              <Sparkles className="h-4 w-4" />
+              口吻化缺口建议
+            </div>
+            {suggestions.map((s, i) => (
+              <div
+                key={i}
+                className={`flex items-start gap-2 rounded-xl px-2.5 py-2 ${
+                  s.severity === 'err' ? 'bg-red-50' : 'bg-white/70'
+                }`}
+              >
+                {s.severity === 'err' ? (
+                  <AlertOctagon className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                ) : (
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-zinc-700">{s.title}</div>
+                  <div className="mt-0.5 text-[11px] leading-relaxed text-zinc-600">{s.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mb-5 max-h-[35vh] space-y-1.5 overflow-y-auto pr-1">
           {checks.map((c, i) => (
             <div
               key={i}
@@ -206,20 +258,29 @@ export const ShareCheckModal = ({ onClose, onConfirmDownload, onConfirmCopy, exp
           >
             再改改
           </button>
-          <button
-            onClick={onConfirmCopy}
-            className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98]"
-          >
-            <Copy className="h-4 w-4" /> 复制文案
-          </button>
-          <button
-            onClick={onConfirmDownload}
-            disabled={exporting}
-            className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
-          >
-            <Download className="h-4 w-4" /> {exporting ? '生成中...' : '下载海报'}
-          </button>
+          {showCopy && (
+            <button
+              onClick={() => handleConfirm('copy')}
+              disabled={exporting}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
+            >
+              <Copy className="h-4 w-4" /> 复制文案
+            </button>
+          )}
+          {showPoster && (
+            <button
+              onClick={() => handleConfirm('poster')}
+              disabled={exporting}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
+            >
+              <Download className="h-4 w-4" /> {exporting ? '生成中...' : '下载海报'}
+            </button>
+          )}
         </div>
+
+        <p className="mt-3 text-center text-[10px] text-zinc-400">
+          确认后会自动记录到「发车历史」，方便下次继续开新车 🚗
+        </p>
       </div>
     </div>
   );

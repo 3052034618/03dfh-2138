@@ -70,6 +70,25 @@ export interface Draft {
   size: PosterSize;
 }
 
+export type ShareType = 'poster' | 'copy' | 'both';
+
+export interface DepartureRecord {
+  id: string;
+  sharedAt: number;
+  tone: Tone;
+  form: FormData;
+  seats: Seat[];
+  size: PosterSize;
+  shareType: ShareType;
+  contactShown: boolean;
+}
+
+export interface ShareSuggestion {
+  severity: 'err' | 'warn';
+  title: string;
+  detail: string;
+}
+
 export const SEAT_ROLES: { role: SeatRole; emoji: string; desc: string; color: string }[] = [
   { role: '控场位', emoji: '🎙️', desc: '能带节奏', color: '#FF6B35' },
   { role: '搞笑位', emoji: '🤡', desc: '气氛担当', color: '#F72585' },

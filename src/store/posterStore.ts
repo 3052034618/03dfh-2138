@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { Tone, PosterSize, Seat, SeatRole, FormData, Draft } from '../types';
+import type { Tone, PosterSize, Seat, SeatRole, FormData, Draft, DepartureRecord, ShareType } from '../types';
 import { generateSeats, updateSeatCustomTag } from '../utils/seatGenerator';
 
 const DRAFT_STORAGE_KEY = 'poster_drafts_v1';
+const DEPARTURE_STORAGE_KEY = 'poster_departures_v1';
 
 const DEFAULT_CONTACT = {
   enabled: false,
@@ -42,12 +43,31 @@ const saveDrafts = (drafts: Draft[]) => {
   }
 };
 
+const loadDepartures = (): DepartureRecord[] => {
+  try {
+    const raw = localStorage.getItem(DEPARTURE_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as DepartureRecord[];
+  } catch {
+    return [];
+  }
+};
+
+const saveDepartures = (recs: DepartureRecord[]) => {
+  try {
+    localStorage.setItem(DEPARTURE_STORAGE_KEY, JSON.stringify(recs));
+  } catch {
+    /* ignore */
+  }
+};
+
 interface PosterState {
   tone: Tone;
   form: FormData;
   seats: Seat[];
   size: PosterSize;
   drafts: Draft[];
+  departures: DepartureRecord[];
 
   setTone: (tone: Tone) => void;
   updateForm: (patch: Partial<FormData>) => void;
@@ -61,6 +81,11 @@ interface PosterState {
   deleteDraft: (id: string) => void;
   loadDraft: (id: string) => void;
   duplicateDraft: (id: string) => void;
+
+  addDeparture: (shareType: ShareType) => DepartureRecord;
+  deleteDeparture: (id: string) => void;
+  loadDeparture: (id: string) => void;
+  departureToDraft: (id: string, name?: string) => void;
 }
 
 export const usePosterStore = create<PosterState>((set, get) => ({
@@ -69,6 +94,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   seats: generateSeats(DEFAULT_FORM),
   size: '朋友圈长图',
   drafts: loadDrafts(),
+  departures: loadDepartures(),
 
   setTone: (tone) => set({ tone }),
 
@@ -175,6 +201,60 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       seats: JSON.parse(JSON.stringify(src.seats)),
     };
     const next = [copy, ...state.drafts];
+    saveDrafts(next);
+    set({ drafts: next });
+  },
+
+  addDeparture: (shareType) => {
+    const state = get();
+    const rec: DepartureRecord = {
+      id: `dep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      sharedAt: Date.now(),
+      tone: state.tone,
+      form: JSON.parse(JSON.stringify(state.form)),
+      seats: JSON.parse(JSON.stringify(state.seats)),
+      size: state.size,
+      shareType,
+      contactShown: !!state.form.contact.enabled,
+    };
+    const next = [rec, ...state.departures];
+    saveDepartures(next);
+    set({ departures: next });
+    return rec;
+  },
+
+  deleteDeparture: (id) => {
+    const next = get().departures.filter((d) => d.id !== id);
+    saveDepartures(next);
+    set({ departures: next });
+  },
+
+  loadDeparture: (id) => {
+    const rec = get().departures.find((d) => d.id === id);
+    if (!rec) return;
+    set({
+      tone: rec.tone,
+      form: JSON.parse(JSON.stringify(rec.form)),
+      seats: JSON.parse(JSON.stringify(rec.seats)),
+      size: rec.size,
+    });
+  },
+
+  departureToDraft: (id, name) => {
+    const state = get();
+    const rec = state.departures.find((d) => d.id === id);
+    if (!rec) return;
+    const draft: Draft = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: name || `${rec.form.scriptName || '发车记录'} · 再开一车`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      tone: rec.tone,
+      form: JSON.parse(JSON.stringify(rec.form)),
+      seats: JSON.parse(JSON.stringify(rec.seats)),
+      size: rec.size,
+    };
+    const next = [draft, ...state.drafts];
     saveDrafts(next);
     set({ drafts: next });
   },

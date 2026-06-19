@@ -8,6 +8,8 @@ import { exportPoster, copyToClipboard } from '../../utils/exportPoster';
 import { generateCopyText } from '../../hooks/useCopyWriter';
 import { Download, Loader2, ClipboardCheck } from 'lucide-react';
 
+type ShareTarget = 'poster' | 'copy' | 'both';
+
 export const PosterPreview = () => {
   const { size, form, tone, seats } = usePosterStore();
   const cfg = getSizeConfig(size);
@@ -15,6 +17,7 @@ export const PosterPreview = () => {
   const [exporting, setExporting] = useState(false);
   const [copying, setCopying] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
+  const [checkTarget, setCheckTarget] = useState<ShareTarget>('both');
 
   const handleExport = async () => {
     if (!posterRef.current || exporting) return;
@@ -36,6 +39,20 @@ export const PosterPreview = () => {
     }
   };
 
+  const openCheck = (target: ShareTarget) => {
+    setCheckTarget(target);
+    setCheckOpen(true);
+  };
+
+  const handleConfirm = (target: ShareTarget) => {
+    if (target === 'poster' || target === 'both') {
+      handleExport();
+    }
+    if (target === 'copy' || target === 'both') {
+      handleCopy();
+    }
+  };
+
   const previewWidth = Math.min(
     560,
     cfg.width * (cfg.height > cfg.width ? 0.32 : cfg.width > cfg.height ? 0.26 : 0.42)
@@ -49,7 +66,7 @@ export const PosterPreview = () => {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setCheckOpen(true)}
+            onClick={() => openCheck('both')}
             className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl active:scale-95"
           >
             <ClipboardCheck className="h-4 w-4 transition-transform group-hover:rotate-6" />
@@ -57,7 +74,7 @@ export const PosterPreview = () => {
           </button>
           <button
             type="button"
-            onClick={handleExport}
+            onClick={() => openCheck('poster')}
             disabled={exporting}
             className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-br from-orange-500 via-pink-500 to-purple-500 px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-pink-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl active:scale-95 disabled:opacity-60"
           >
@@ -116,14 +133,8 @@ export const PosterPreview = () => {
         <ShareCheckModal
           onClose={() => setCheckOpen(false)}
           exporting={exporting || copying}
-          onConfirmDownload={() => {
-            setCheckOpen(false);
-            handleExport();
-          }}
-          onConfirmCopy={() => {
-            setCheckOpen(false);
-            handleCopy();
-          }}
+          initialTarget={checkTarget}
+          onConfirm={handleConfirm}
         />
       )}
     </div>

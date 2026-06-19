@@ -2,23 +2,36 @@ import { useEffect, useState } from 'react';
 import { usePosterStore } from '../store/posterStore';
 import { generateCopyText } from '../hooks/useCopyWriter';
 import { copyToClipboard } from '../utils/exportPoster';
+import { ShareCheckModal } from './ShareCheckModal';
 import { Copy, Check, RefreshCw } from 'lucide-react';
+
+type ShareTarget = 'poster' | 'copy' | 'both';
 
 export const CopyWriterPanel = () => {
   const { tone, form, seats } = usePosterStore();
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
   const [regenKey, setRegenKey] = useState(0);
+  const [checkOpen, setCheckOpen] = useState(false);
+  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     setText(generateCopyText(tone, form, seats));
   }, [tone, form, seats, regenKey]);
 
-  const handleCopy = async () => {
+  const doCopy = async () => {
+    setCopying(true);
     const ok = await copyToClipboard(text);
+    setTimeout(() => setCopying(false), 1200);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
+    }
+  };
+
+  const handleConfirm = (target: ShareTarget) => {
+    if (target === 'copy' || target === 'both') {
+      doCopy();
     }
   };
 
@@ -39,7 +52,7 @@ export const CopyWriterPanel = () => {
           </button>
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={() => setCheckOpen(true)}
             className="relative inline-flex items-center gap-1 overflow-hidden rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 px-4 py-1.5 text-xs font-black text-white shadow-md shadow-pink-500/20 transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
           >
             {copied ? (
@@ -71,8 +84,17 @@ export const CopyWriterPanel = () => {
         <div className="absolute -bottom-2 left-8 h-4 w-4 rotate-45 bg-emerald-100" aria-hidden />
       </div>
       <p className="mt-2 text-[11px] text-zinc-500">
-        💡 文案根据口吻、车况、车位自动生成，可复制后自行微调再发送
+        💡 文案根据口吻、车况、车位自动生成，点复制前会先做分享检查，避免漏掉关键信息～
       </p>
+
+      {checkOpen && (
+        <ShareCheckModal
+          onClose={() => setCheckOpen(false)}
+          exporting={copying}
+          initialTarget="copy"
+          onConfirm={handleConfirm}
+        />
+      )}
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { Dices, PartyPopper, FolderOpen } from 'lucide-react';
 import { usePosterStore } from '@/store/posterStore';
 
 export default function Home() {
-  const { drafts } = usePosterStore();
+  const { drafts, departures } = usePosterStore();
   const [draftOpen, setDraftOpen] = useState(false);
 
   return (
@@ -38,7 +38,7 @@ export default function Home() {
                 <PartyPopper className="ml-1 inline h-7 w-7 -translate-y-1 text-pink-500" />
               </h1>
               <p className="mt-0.5 text-xs text-zinc-500 sm:text-sm">
-                选口吻 → 填车况 → 标车位 → 导出海报，告别反复解释，组局就是玩儿～
+                选口吻 → 填车况 → 标车位 → 检查后分享，告别反复解释，组局就是玩儿～
               </p>
             </div>
           </div>
@@ -49,10 +49,10 @@ export default function Home() {
               className="relative inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 px-4 py-2 text-xs font-black text-white shadow-md shadow-indigo-500/30 transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              我的草稿箱
-              {drafts.length > 0 && (
+              发车管理
+              {drafts.length + departures.length > 0 && (
                 <span className="ml-0.5 rounded-full bg-white/25 px-1.5 py-0.5 text-[10px]">
-                  {drafts.length}
+                  {drafts.length + departures.length}
                 </span>
               )}
             </button>
