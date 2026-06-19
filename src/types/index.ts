@@ -8,7 +8,15 @@ export interface Seat {
   id: number;
   status: 'filled' | 'empty';
   role?: SeatRole;
+  customTag?: string;
   memberTag?: string;
+}
+
+export interface ContactInfo {
+  enabled: boolean;
+  wechat: string;
+  password: string;
+  needConfirm: boolean;
 }
 
 export interface FormData {
@@ -21,6 +29,7 @@ export interface FormData {
   allowCross: boolean;
   allowNewbie: boolean;
   memberFeatures: string[];
+  contact: ContactInfo;
 }
 
 export interface SizeConfig {
@@ -50,9 +59,31 @@ export interface ToneTheme {
   borderColor: string;
 }
 
+export interface Draft {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  tone: Tone;
+  form: FormData;
+  seats: Seat[];
+  size: PosterSize;
+}
+
 export const SEAT_ROLES: { role: SeatRole; emoji: string; desc: string; color: string }[] = [
   { role: '控场位', emoji: '🎙️', desc: '能带节奏', color: '#FF6B35' },
   { role: '搞笑位', emoji: '🤡', desc: '气氛担当', color: '#F72585' },
   { role: '脑洞位', emoji: '🧠', desc: '脑洞大', color: '#7209B7' },
   { role: '随缘位', emoji: '🎲', desc: '都可以', color: '#4CC9F0' },
 ];
+
+export const getSeatDisplay = (seat: Seat): { label: string; emoji: string; color: string } => {
+  if (seat.status === 'filled') {
+    return { label: seat.memberTag || '已到', emoji: '✅', color: '#10B981' };
+  }
+  if (seat.customTag && seat.customTag.trim()) {
+    return { label: seat.customTag.trim(), emoji: '✨', color: '#0EA5E9' };
+  }
+  const roleCfg = SEAT_ROLES.find((r) => r.role === seat.role) || SEAT_ROLES[3];
+  return { label: roleCfg.role, emoji: roleCfg.emoji, color: roleCfg.color };
+};

@@ -9,6 +9,7 @@ const MEMBER_PRESET_TAGS = [
   '搞笑男',
   '搞笑女',
   '情感本战神',
+  '情感本选手',
   '菠萝头',
   '推理机器',
   '戏精',
@@ -28,6 +29,10 @@ export const PlayerConfig = () => {
 
   const removeTag = (tag: string) => {
     updateForm({ memberFeatures: form.memberFeatures.filter((t) => t !== tag) });
+  };
+
+  const updateContact = (patch: Partial<typeof form.contact>) => {
+    updateForm({ contact: { ...form.contact, ...patch } });
   };
 
   return (
@@ -97,10 +102,11 @@ export const PlayerConfig = () => {
         </label>
       </div>
 
-      <div>
+      <div className="mb-4">
         <span className="mb-2 block text-xs font-medium text-zinc-600">
           ✨ 已有成员特点（点标签添加/删除）
         </span>
+        <p className="mb-2 text-[11px] text-zinc-400">修改不会影响你标好的空位类型～</p>
         <div className="mb-2 flex flex-wrap gap-2">
           {MEMBER_PRESET_TAGS.map((tag) => {
             const active = form.memberFeatures.includes(tag);
@@ -160,6 +166,58 @@ export const PlayerConfig = () => {
                 </button>
               </span>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 border-t border-zinc-100 pt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📞</span>
+            <h4 className="text-base font-bold text-zinc-800">局头联系方式</h4>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded-full bg-zinc-100 px-3 py-1">
+            <span className="text-xs font-medium text-zinc-600">显示在海报和文案</span>
+            <input
+              type="checkbox"
+              checked={form.contact.enabled}
+              onChange={(e) => updateContact({ enabled: e.target.checked })}
+              className="h-4 w-4 accent-orange-500"
+            />
+          </label>
+        </div>
+
+        {form.contact.enabled && (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-600">💚 微信号</span>
+              <input
+                type="text"
+                value={form.contact.wechat}
+                onChange={(e) => updateContact({ wechat: e.target.value })}
+                placeholder="例如：ju_tou_888"
+                className="w-full rounded-xl border-2 border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none transition-colors focus:border-orange-400 focus:bg-white"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-600">🔑 备注口令（加好友时说）</span>
+              <input
+                type="text"
+                value={form.contact.password}
+                onChange={(e) => updateContact({ password: e.target.value })}
+                placeholder="例如：剧本杀"
+                className="w-full rounded-xl border-2 border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none transition-colors focus:border-orange-400 focus:bg-white"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center justify-between rounded-xl border-2 border-zinc-200 bg-zinc-50 px-3 py-2 transition-colors hover:border-orange-300">
+              <span className="text-sm text-zinc-700">🤝 需要先私聊确认再上车</span>
+              <input
+                type="checkbox"
+                checked={form.contact.needConfirm}
+                onChange={(e) => updateContact({ needConfirm: e.target.checked })}
+                className="h-5 w-5 accent-orange-500"
+              />
+            </label>
           </div>
         )}
       </div>

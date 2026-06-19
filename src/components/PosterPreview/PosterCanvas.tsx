@@ -4,45 +4,42 @@ import { TONE_THEMES } from '../../config/toneThemes';
 import { SIZE_PRESETS, getSizeConfig } from '../../config/sizePresets';
 import { getMissingCount, pickRandom } from '../../utils/seatGenerator';
 import type { Seat } from '../../types';
-import { SEAT_ROLES } from '../../types';
+import { getSeatDisplay } from '../../types';
 
 interface PosterCanvasProps {
   sizeKey?: (typeof SIZE_PRESETS)[number]['key'];
 }
 
-const SeatMini = ({ seat, theme }: { seat: Seat; theme: (typeof TONE_THEMES)[keyof typeof TONE_THEMES] }) => {
+const SeatMini = ({ seat }: { seat: Seat }) => {
   if (seat.status === 'filled') {
     return (
       <div
         className="flex flex-col items-center justify-center rounded-xl border-2"
         style={{
           borderColor: '#10B981',
-          background: 'rgba(16,185,129,0.1)',
+          background: 'rgba(16,185,129,0.12)',
         }}
       >
         <div className="text-xl leading-none">✅</div>
-        <div className="mt-0.5 truncate px-1 text-center text-[10px] font-semibold text-emerald-800 w-full">
+        <div className="mt-0.5 w-full truncate px-1 text-center text-[10px] font-semibold text-emerald-800">
           {seat.memberTag}
         </div>
       </div>
     );
   }
-  const roleConfig = SEAT_ROLES.find((r) => r.role === seat.role) || SEAT_ROLES[3];
+  const d = getSeatDisplay(seat);
   return (
     <div
       className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed"
       style={{
-        borderColor: roleConfig.color,
-        background: `${roleConfig.color}1A`,
-        boxShadow: `inset 0 0 0 1px ${roleConfig.color}33`,
+        borderColor: d.color,
+        background: `${d.color}1A`,
+        boxShadow: `inset 0 0 0 1px ${d.color}33`,
       }}
     >
-      <div className="text-xl leading-none">{roleConfig.emoji}</div>
-      <div
-        className="mt-0.5 text-[10px] font-extrabold"
-        style={{ color: roleConfig.color }}
-      >
-        {roleConfig.role}
+      <div className="text-xl leading-none">{d.emoji}</div>
+      <div className="mt-0.5 text-[10px] font-extrabold" style={{ color: d.color }}>
+        {d.label}
       </div>
     </div>
   );
@@ -55,6 +52,9 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
   const cfg = getSizeConfig(actualSize);
   const missing = getMissingCount(form.totalPlayers, form.filledPlayers);
   const progress = form.totalPlayers > 0 ? form.filledPlayers / form.totalPlayers : 0;
+  const contact = form.contact;
+  const contactVisible =
+    contact.enabled && (contact.wechat.trim() || contact.password.trim() || contact.needConfirm);
 
   const decor = useMemo(() => {
     const pool = theme.decorElements;
@@ -70,6 +70,14 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
 
   const isLong = cfg.height > cfg.width;
   const isWide = cfg.width > cfg.height;
+
+  const infoItems = [
+    { emoji: '🕒', label: '时间', value: form.dateTime || '待定' },
+    { emoji: '📍', label: '地点', value: form.location || '待定' },
+    { emoji: '💸', label: '费用', value: form.fee || '私聊' },
+    { emoji: '🔄', label: '反串', value: form.allowCross ? '✅可反串' : '❌不接受' },
+    { emoji: '🌱', label: '新手', value: form.allowNewbie ? '✅欢迎萌新' : '❌仅老手' },
+  ];
 
   return (
     <div
@@ -87,7 +95,8 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
     >
       <div className="pointer-events-none absolute inset-0" style={{ background: theme.bgPattern }} />
 
-      <div className="pointer-events-none absolute inset-0 opacity-[0.04]"
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.04]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='%23000' fill-opacity='1'%3E%3Cpath d='M0 0h30v30H0zM30 30h30v30H30z'/%3E%3C/g%3E%3C/svg%3E")`,
         }}
@@ -106,11 +115,14 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
         {decor[3]}
       </div>
 
-      <div className="relative z-10 flex h-full flex-col" style={{ padding: isLong ? '56px 48px' : isWide ? '40px 72px' : '52px 56px' }}>
+      <div
+        className="relative z-10 flex h-full flex-col"
+        style={{ padding: isLong ? '56px 48px' : isWide ? '40px 72px' : '52px 56px' }}
+      >
         <div
           className="mb-4 flex items-center justify-between rounded-2xl px-5 py-3"
           style={{
-            background: `${theme.primary}`,
+            background: theme.primary,
             color: theme.textOnPrimary,
             boxShadow: `0 10px 30px ${theme.primary}55`,
             transform: 'rotate(-1.2deg)',
@@ -124,7 +136,7 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
           </div>
           <div className="flex gap-1 text-2xl">
             {theme.decorElements.slice(6, 9).map((e, i) => (
-              <span key={i} className="animate-bounce-slow" style={{ animationDelay: `${i * 120}ms` }}>
+              <span key={i} style={{ animation: `bounce-slow 2.5s ease-in-out ${i * 120}ms infinite` }}>
                 {e}
               </span>
             ))}
@@ -197,36 +209,31 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
           }}
         >
           {seats.map((seat) => (
-            <SeatMini key={seat.id} seat={seat} theme={theme} />
+            <SeatMini key={seat.id} seat={seat} />
           ))}
         </div>
 
-        <div className="mb-4 grid gap-3" style={{ gridTemplateColumns: isWide ? 'repeat(3,1fr)' : 'repeat(2,1fr)' }}>
-          {[
-            { emoji: '🕒', label: '时间', value: form.dateTime || '待定' },
-            { emoji: '📍', label: '地点', value: form.location || '待定' },
-            { emoji: '💸', label: '费用', value: form.fee || '私聊' },
-            { emoji: '🔄', label: '反串', value: form.allowCross ? '✅可反串' : '❌不接受' },
-            { emoji: '🌱', label: '新手', value: form.allowNewbie ? '✅欢迎萌新' : '❌仅老手' },
-          ]
-            .slice(0, isWide ? 5 : 4)
-            .map((it, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-3 rounded-xl border-2 p-3"
-                style={{
-                  borderColor: theme.borderColor,
-                  background: 'rgba(255,255,255,0.55)',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                <span className="text-2xl">{it.emoji}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-bold opacity-70">{it.label}</div>
-                  <div className="truncate text-sm font-black">{it.value}</div>
-                </div>
+        <div
+          className="mb-4 grid gap-3"
+          style={{ gridTemplateColumns: isWide ? 'repeat(3,1fr)' : 'repeat(2,1fr)' }}
+        >
+          {infoItems.slice(0, isWide ? 5 : 4).map((it, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-3 rounded-xl border-2 p-3"
+              style={{
+                borderColor: theme.borderColor,
+                background: 'rgba(255,255,255,0.55)',
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              <span className="text-2xl">{it.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-bold opacity-70">{it.label}</div>
+                <div className="truncate text-sm font-black">{it.value}</div>
               </div>
-            ))}
+            </div>
+          ))}
           {!isWide && (
             <div
               className="col-span-2 flex items-center gap-3 rounded-xl border-2 p-3"
@@ -238,11 +245,64 @@ export const PosterCanvas = forwardRef<HTMLDivElement, PosterCanvasProps>(({ siz
               <span className="text-2xl">🌱</span>
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold opacity-70">新手</div>
-                <div className="truncate text-sm font-black">{form.allowNewbie ? '✅欢迎萌新' : '❌仅老手'}</div>
+                <div className="truncate text-sm font-black">
+                  {form.allowNewbie ? '✅欢迎萌新' : '❌仅老手'}
+                </div>
               </div>
             </div>
           )}
         </div>
+
+        {contactVisible && (
+          <div
+            className="mb-4 rounded-2xl border-2 p-4"
+            style={{
+              borderColor: theme.accent,
+              background: `${theme.accent}15`,
+            }}
+          >
+            <div className="mb-2 flex items-center gap-2 text-sm font-black" style={{ color: theme.accent }}>
+              <span className="text-xl">📞</span> 局头联系方式
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {contact.wechat.trim() && (
+                <div
+                  className="rounded-full px-3 py-1 text-sm font-black"
+                  style={{
+                    background: 'white',
+                    color: theme.accent,
+                    border: `2px solid ${theme.accent}`,
+                  }}
+                >
+                  💚 微信：{contact.wechat.trim()}
+                </div>
+              )}
+              {contact.password.trim() && (
+                <div
+                  className="rounded-full px-3 py-1 text-sm font-black"
+                  style={{
+                    background: 'white',
+                    color: theme.accent,
+                    border: `2px solid ${theme.accent}`,
+                  }}
+                >
+                  🔑 备注：{contact.password.trim()}
+                </div>
+              )}
+              {contact.needConfirm && (
+                <div
+                  className="rounded-full px-3 py-1 text-sm font-black"
+                  style={{
+                    background: theme.accent,
+                    color: theme.textOnPrimary,
+                  }}
+                >
+                  🤝 先私聊确认再上车
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {form.memberFeatures.length > 0 && (
           <div className="mb-4">
