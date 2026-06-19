@@ -6,7 +6,9 @@ import { SizeTabs } from './SizeTabs';
 import { ShareCheckModal } from '../ShareCheckModal';
 import { exportPoster, copyToClipboard } from '../../utils/exportPoster';
 import { generateCopyText } from '../../hooks/useCopyWriter';
+import { getChannelConfig } from '../../config/channelConfigs';
 import { Download, Loader2, ClipboardCheck } from 'lucide-react';
+import type { PublishChannel } from '../../types';
 
 type ShareTarget = 'poster' | 'copy' | 'both';
 
@@ -29,10 +31,11 @@ export const PosterPreview = () => {
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (channel: PublishChannel) => {
     setCopying(true);
     try {
-      const text = generateCopyText(tone, form, seats);
+      const chCfg = getChannelConfig(channel);
+      const text = generateCopyText(tone, form, seats, chCfg.copyLength);
       await copyToClipboard(text);
     } finally {
       setTimeout(() => setCopying(false), 1200);
@@ -44,12 +47,12 @@ export const PosterPreview = () => {
     setCheckOpen(true);
   };
 
-  const handleConfirm = (target: ShareTarget) => {
+  const handleConfirm = (target: ShareTarget, channel: PublishChannel) => {
     if (target === 'poster' || target === 'both') {
       handleExport();
     }
     if (target === 'copy' || target === 'both') {
-      handleCopy();
+      handleCopy(channel);
     }
   };
 

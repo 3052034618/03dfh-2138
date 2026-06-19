@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { usePosterStore } from '../store/posterStore';
 import { generateCopyText } from '../hooks/useCopyWriter';
 import { copyToClipboard } from '../utils/exportPoster';
+import { getChannelConfig } from '../config/channelConfigs';
 import { ShareCheckModal } from './ShareCheckModal';
 import { Copy, Check, RefreshCw } from 'lucide-react';
+import type { PublishChannel } from '../types';
 
 type ShareTarget = 'poster' | 'copy' | 'both';
 
@@ -19,9 +21,12 @@ export const CopyWriterPanel = () => {
     setText(generateCopyText(tone, form, seats));
   }, [tone, form, seats, regenKey]);
 
-  const doCopy = async () => {
+  const doCopy = async (channel: PublishChannel = '微信群') => {
     setCopying(true);
-    const ok = await copyToClipboard(text);
+    const chCfg = getChannelConfig(channel);
+    const finalText = generateCopyText(tone, form, seats, chCfg.copyLength);
+    setText(finalText);
+    const ok = await copyToClipboard(finalText);
     setTimeout(() => setCopying(false), 1200);
     if (ok) {
       setCopied(true);
@@ -29,9 +34,9 @@ export const CopyWriterPanel = () => {
     }
   };
 
-  const handleConfirm = (target: ShareTarget) => {
+  const handleConfirm = (target: ShareTarget, channel: PublishChannel) => {
     if (target === 'copy' || target === 'both') {
-      doCopy();
+      doCopy(channel);
     }
   };
 

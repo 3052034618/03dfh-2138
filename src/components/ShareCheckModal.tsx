@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { usePosterStore } from '../store/posterStore';
 import { getMissingCount } from '../utils/seatGenerator';
-import { getSeatDisplay } from '../types';
+import { getSeatDisplay, isContactActuallyShown } from '../types';
 import { generateShareSuggestions } from '../utils/shareSuggestions';
+import { CHANNEL_CONFIGS, getChannelConfig } from '../config/channelConfigs';
+import { getSizeConfig } from '../config/sizePresets';
 import {
   X,
   CheckCircle2,
@@ -13,8 +15,11 @@ import {
   Sparkles,
   AlertOctagon,
   AlertCircle,
+  Send,
+  Image,
+  FileText,
 } from 'lucide-react';
-import type { ShareType } from '../types';
+import type { ShareType, PublishChannel } from '../types';
 
 type CheckType = 'ok' | 'warn' | 'err';
 interface CheckItem {
@@ -30,12 +35,24 @@ interface Props {
   onClose: () => void;
   exporting: boolean;
   initialTarget?: ShareTarget;
-  onConfirm: (target: ShareTarget) => void;
+  onConfirm: (target: ShareTarget, channel: PublishChannel) => void;
 }
 
-export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', onConfirm }: Props) => {
-  const { form, tone, size, seats, addDeparture } = usePosterStore();
+export const ShareCheckModal = ({
+  onClose,
+  exporting,
+  initialTarget = 'both',
+  onConfirm,
+}: Props) => {
+  const { form, tone, size, seats, addDeparture, setSize } = usePosterStore();
+  const [channel, setChannel] = useState<PublishChannel>('微信群');
   const missing = getMissingCount(form.totalPlayers, form.filledPlayers);
+
+  const channelCfg = useMemo(() => getChannelConfig(channel), [channel]);
+  const contactActuallyShown = useMemo(
+    () => isContactActuallyShown(form.contact),
+    [form.contact]
+  );
 
   const checks: CheckItem[] = useMemo(() => {
     const items: CheckItem[] = [];
@@ -106,16 +123,19 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
     if (form.contact.enabled) {
       items.push({
         label: '局头联系方式',
-        value:
-          [
-            form.contact.wechat && `微信：${form.contact.wechat}`,
-            form.contact.password && `口令：${form.contact.password}`,
-            form.contact.needConfirm ? '需要私聊确认' : '',
-          ]
-            .filter(Boolean)
-            .join(' · ') || '（已开启但未填任何信息）',
-        status: form.contact.wechat?.trim() ? 'ok' : 'warn',
-        tip: form.contact.wechat?.trim() ? '' : '已开启显示联系方式但微信号为空',
+        value: contactActuallyShown
+          ? [
+              form.contact.wechat && `微信：${form.contact.wechat}`,
+              form.contact.password && `口令：${form.contact.password}`,
+              form.contact.needConfirm ? '需要私聊确认' : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : '（开关已开但未填任何实际内容）',
+        status: contactActuallyShown ? 'ok' : 'warn',
+        tip: contactActuallyShown
+          ? ''
+          : '已开启显示但微信号/口令都为空，不会显示在海报和文案里',
       });
     } else {
       items.push({
@@ -141,15 +161,20 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
     });
 
     return items;
-  }, [form, tone, size, seats, missing]);
+  }, [form, tone, size, seats, missing, contactActuallyShown]);
 
   const suggestions = useMemo(() => generateShareSuggestions(tone, form, seats), [tone, form, seats]);
 
   const summary = useMemo(() => {
     const err = checks.filter((c) => c.status === 'err').length;
     const warn = checks.filter((c) => c.status === 'warn').length;
-    if (err > 0) return { status: 'err' as const, text: `有 ${err} 项必填没填，最好先补一下` };
-    if (warn > 0) return { status: 'warn' as const, text: `有 ${warn} 项建议完善，可以直接发但可能漏掉信息` };
+    if (err > 0)
+      return { status: 'err' as const, text: `有 ${err} 项必填没填，最好先补一下` };
+    if (warn > 0)
+      return {
+        status: 'warn' as const,
+        text: `有 ${warn} 项建议完善，可以直接发但可能漏掉信息`,
+      };
     return { status: 'ok' as const, text: '信息都很完整，可以放心发了！🚀' };
   }, [checks]);
 
@@ -164,18 +189,22 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
     err: <AlertTriangle className="h-4 w-4" />,
   };
 
-  const handleConfirm = (target: ShareTarget) => {
-    const shareType: ShareType = target === 'both' ? 'both' : target;
-    addDeparture(shareType);
-    onConfirm(target);
-  };
-
   const showPoster = initialTarget === 'both' || initialTarget === 'poster';
   const showCopy = initialTarget === 'both' || initialTarget === 'copy';
+  const showBoth = initialTarget === 'both';
+
+  const handleConfirm = (target: ShareTarget) => {
+    const shareType: ShareType = target === 'both' ? 'both' : target;
+    addDeparture(shareType, channel);
+    onConfirm(target, channel);
+  };
+
+  const targetLabel =
+    initialTarget === 'both' ? '海报+文案' : initialTarget === 'poster' ? '海报' : '文案';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-pop max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl animate-pop max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200"
@@ -193,11 +222,70 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
                 : 'bg-red-500 text-white'
             }`}
           >
-            <CheckCircle2 className="h-6 w-6" />
+            <Send className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-xl font-black text-zinc-800">分享前检查一下</h3>
+            <h3 className="text-xl font-black text-zinc-800">
+              准备发布 · {targetLabel}
+            </h3>
             <p className="text-sm text-zinc-500">{summary.text}</p>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="mb-2 text-xs font-bold text-zinc-500">选择发布渠道</div>
+          <div className="grid grid-cols-2 gap-2">
+            {CHANNEL_CONFIGS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setChannel(c.key)}
+                className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition-all ${
+                  channel === c.key
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                }`}
+              >
+                <span className="text-lg">{c.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold">{c.label}</div>
+                  <div className="text-[10px] text-zinc-500">{c.hint}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+            <div className="min-w-0 flex-1 text-[11px] text-zinc-600">
+              {channelCfg.suggestSize !== size && (
+                <>
+                  建议尺寸：
+                  <span className="font-bold text-indigo-600">{channelCfg.suggestSize}</span>
+                  ，当前是 <span className="text-zinc-500">{size}</span>
+                </>
+              )}
+              {channelCfg.suggestSize === size && (
+                <span className="text-emerald-600">
+                  ✅ 当前尺寸适合 {channelCfg.label}
+                </span>
+              )}
+            </div>
+            {channelCfg.suggestSize !== size && (
+              <button
+                type="button"
+                onClick={() => setSize(channelCfg.suggestSize)}
+                className="shrink-0 rounded-lg bg-indigo-500 px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-indigo-600"
+              >
+                一键切换
+              </button>
+            )}
+          </div>
+          <div className="mt-1 text-[10px] text-zinc-400">
+            文案长度：
+            {channelCfg.copyLength === 'short'
+              ? '精简版'
+              : channelCfg.copyLength === 'medium'
+              ? '标准版'
+              : '完整版'}
           </div>
         </div>
 
@@ -221,14 +309,16 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold text-zinc-700">{s.title}</div>
-                  <div className="mt-0.5 text-[11px] leading-relaxed text-zinc-600">{s.detail}</div>
+                  <div className="mt-0.5 text-[11px] leading-relaxed text-zinc-600">
+                    {s.detail}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        <div className="mb-5 max-h-[35vh] space-y-1.5 overflow-y-auto pr-1">
+        <div className="mb-5 max-h-[25vh] space-y-1.5 overflow-y-auto pr-1">
           {checks.map((c, i) => (
             <div
               key={i}
@@ -243,9 +333,13 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-zinc-500">{c.label}</span>
                   <ChevronRight className="h-3 w-3 text-zinc-300" />
-                  <span className="truncate text-sm font-semibold text-zinc-800">{c.value}</span>
+                  <span className="truncate text-sm font-semibold text-zinc-800">
+                    {c.value}
+                  </span>
                 </div>
-                {c.tip && <div className="mt-0.5 text-[11px] text-zinc-500">💡 {c.tip}</div>}
+                {c.tip && (
+                  <div className="mt-0.5 text-[11px] text-zinc-500">💡 {c.tip}</div>
+                )}
               </div>
             </div>
           ))}
@@ -258,28 +352,39 @@ export const ShareCheckModal = ({ onClose, exporting, initialTarget = 'both', on
           >
             再改改
           </button>
-          {showCopy && (
+          {showCopy && !showBoth && (
             <button
               onClick={() => handleConfirm('copy')}
               disabled={exporting}
               className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
             >
-              <Copy className="h-4 w-4" /> 复制文案
+              <Copy className="h-4 w-4" /> 复制文案并发布
             </button>
           )}
-          {showPoster && (
+          {showPoster && !showBoth && (
             <button
               onClick={() => handleConfirm('poster')}
               disabled={exporting}
               className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
             >
-              <Download className="h-4 w-4" /> {exporting ? '生成中...' : '下载海报'}
+              <Download className="h-4 w-4" /> {exporting ? '生成中...' : '下载海报并发布'}
+            </button>
+          )}
+          {showBoth && (
+            <button
+              onClick={() => handleConfirm('both')}
+              disabled={exporting}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-orange-500 via-pink-500 to-purple-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
+            >
+              <Image className="h-4 w-4" />
+              <FileText className="h-4 w-4" />
+              {exporting ? '生成中...' : '确认发布（海报+文案）'}
             </button>
           )}
         </div>
 
         <p className="mt-3 text-center text-[10px] text-zinc-400">
-          确认后会自动记录到「发车历史」，方便下次继续开新车 🚗
+          确认后会自动记录到「发车历史」，发布到：{channelCfg.label}
         </p>
       </div>
     </div>

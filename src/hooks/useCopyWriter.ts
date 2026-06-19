@@ -17,16 +17,13 @@ const buildSeatGapList = (seats: Seat[]): string => {
     .join('、');
 };
 
-export const generateCopyText = (tone: Tone, form: FormData, seats: Seat[]): string => {
-  const tpl = pickRandom(getTemplates(tone));
-  const theme = TONE_THEMES[tone];
+export const generateCopyText = (
+  tone: Tone,
+  form: FormData,
+  seats: Seat[],
+  length: 'short' | 'medium' | 'long' = 'medium'
+): string => {
   const missing = getMissingCount(form.totalPlayers, form.filledPlayers);
-
-  const cta = pickRandom(theme.ctaCopy);
-  const memberTags =
-    form.memberFeatures.length > 0
-      ? Array.from(new Set(form.memberFeatures)).join('、')
-      : '一群有趣的灵魂';
 
   const contactLines: string[] = [];
   if (form.contact.enabled) {
@@ -34,13 +31,37 @@ export const generateCopyText = (tone: Tone, form: FormData, seats: Seat[]): str
       contactLines.push(`💚 微信：${form.contact.wechat.trim()}`);
     }
     if (form.contact.password.trim()) {
-      contactLines.push(`🔑 加好友请备注：${form.contact.password.trim()}`);
+      contactLines.push(`🔑 备注：${form.contact.password.trim()}`);
     }
     if (form.contact.needConfirm) {
-      contactLines.push('🤝 需要先私聊确认再上车哦');
+      contactLines.push('🤝 需私聊确认');
     }
   }
-  const contactBlock = contactLines.length > 0 ? `\n\n📞 联系方式：\n${contactLines.join('\n')}` : '';
+  const contactBlock =
+    contactLines.length > 0 ? `\n\n📞 联系方式：\n${contactLines.join('\n')}` : '';
+
+  if (length === 'short') {
+    const parts = [
+      `🚗 《${form.scriptName || '神秘好本'}》`,
+      `🕒 ${form.dateTime || '待定'}`,
+      `📍 ${form.location || '待定'}`,
+      `👥 ${form.filledPlayers}/${form.totalPlayers}，还差 ${missing} 人`,
+      form.fee?.trim() ? `💰 ${form.fee.trim()}` : '',
+      form.allowCross ? '✅可反串' : '❌不反串',
+      form.allowNewbie ? '✅新手ok' : '❌仅老手',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return parts + contactBlock;
+  }
+
+  const tpl = pickRandom(getTemplates(tone));
+  const theme = TONE_THEMES[tone];
+  const cta = pickRandom(theme.ctaCopy);
+  const memberTags =
+    form.memberFeatures.length > 0
+      ? Array.from(new Set(form.memberFeatures)).join('、')
+      : '一群有趣的灵魂';
 
   const replacements: Record<string, string> = {
     '{{剧本名}}': form.scriptName || '神秘好本',
@@ -65,6 +86,13 @@ export const generateCopyText = (tone: Tone, form: FormData, seats: Seat[]): str
   if (!result.includes('联系方式') && contactBlock) {
     result = result.trimEnd() + contactBlock;
   }
+
+  if (length === 'long') {
+    const decorEmojis = theme.decorElements;
+    const headDecor = `${pickRandom(decorEmojis)} ${pickRandom(decorEmojis)} ${pickRandom(decorEmojis)}`;
+    result = `${headDecor}\n\n${result}\n\n${headDecor}`;
+  }
+
   return result;
 };
 

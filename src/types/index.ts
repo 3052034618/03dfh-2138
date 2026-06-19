@@ -72,6 +72,8 @@ export interface Draft {
 
 export type ShareType = 'poster' | 'copy' | 'both';
 
+export type PublishChannel = '朋友圈' | '微信群' | '店铺群' | '私聊';
+
 export interface DepartureRecord {
   id: string;
   sharedAt: number;
@@ -81,12 +83,31 @@ export interface DepartureRecord {
   size: PosterSize;
   shareType: ShareType;
   contactShown: boolean;
+  channel: PublishChannel;
 }
 
 export interface ShareSuggestion {
   severity: 'err' | 'warn';
   title: string;
   detail: string;
+}
+
+export interface ChannelConfig {
+  key: PublishChannel;
+  label: string;
+  emoji: string;
+  suggestSize: PosterSize;
+  copyLength: 'short' | 'medium' | 'long';
+  hint: string;
+}
+
+export interface DepartureStats {
+  total: number;
+  last7Days: number;
+  missingMoreThan2: number;
+  withContact: number;
+  byChannel: Record<PublishChannel, number>;
+  byScript: { name: string; count: number }[];
 }
 
 export const SEAT_ROLES: { role: SeatRole; emoji: string; desc: string; color: string }[] = [
@@ -106,3 +127,9 @@ export const getSeatDisplay = (seat: Seat): { label: string; emoji: string; colo
   const roleCfg = SEAT_ROLES.find((r) => r.role === seat.role) || SEAT_ROLES[3];
   return { label: roleCfg.role, emoji: roleCfg.emoji, color: roleCfg.color };
 };
+
+export const isContactActuallyShown = (contact: ContactInfo): boolean => {
+  if (!contact.enabled) return false;
+  return !!(contact.wechat?.trim() || contact.password?.trim() || contact.needConfirm);
+};
+

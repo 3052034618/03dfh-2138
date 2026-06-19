@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Tone, PosterSize, Seat, SeatRole, FormData, Draft, DepartureRecord, ShareType } from '../types';
+import type { Tone, PosterSize, Seat, SeatRole, FormData, Draft, DepartureRecord, ShareType, PublishChannel } from '../types';
 import { generateSeats, updateSeatCustomTag } from '../utils/seatGenerator';
+import { isContactActuallyShown } from '../types';
 
 const DRAFT_STORAGE_KEY = 'poster_drafts_v1';
 const DEPARTURE_STORAGE_KEY = 'poster_departures_v1';
@@ -82,7 +83,7 @@ interface PosterState {
   loadDraft: (id: string) => void;
   duplicateDraft: (id: string) => void;
 
-  addDeparture: (shareType: ShareType) => DepartureRecord;
+  addDeparture: (shareType: ShareType, channel?: PublishChannel) => DepartureRecord;
   deleteDeparture: (id: string) => void;
   loadDeparture: (id: string) => void;
   departureToDraft: (id: string, name?: string) => void;
@@ -205,7 +206,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     set({ drafts: next });
   },
 
-  addDeparture: (shareType) => {
+  addDeparture: (shareType, channel: PublishChannel = '微信群') => {
     const state = get();
     const rec: DepartureRecord = {
       id: `dep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -215,7 +216,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       seats: JSON.parse(JSON.stringify(state.seats)),
       size: state.size,
       shareType,
-      contactShown: !!state.form.contact.enabled,
+      contactShown: isContactActuallyShown(state.form.contact),
+      channel,
     };
     const next = [rec, ...state.departures];
     saveDepartures(next);
